@@ -88,7 +88,7 @@ def exp_backward(grad: np.ndarray, inp: list["Tensor"], out: np.ndarray):
     """
     assert len(inp) == 1
 
-    inp[0].backward(grad * inp[0].data)
+    inp[0].backward(grad * out)
 
 def log_backward(grad: np.ndarray, inp: list["Tensor"], out: np.ndarray):
     """
@@ -112,7 +112,8 @@ def rowwise_softmax_backward(grad: np.ndarray, inp: list["Tensor"], out: np.ndar
     """
     assert len(inp) == 1
 
-    inp[0].backward(grad * out * (1 - out))
+    dot = np.sum(grad * out, axis=1, keepdims=True)
+    inp[0].backward(out * (grad - dot))
 
 def rowwise_logsumexp_backward(grad: np.ndarray, inp: list["Tensor"], out: np.ndarray):
     """
@@ -362,7 +363,8 @@ def rowwise_softmax(x: Tensor) -> Tensor:
     return Tensor(data, inp=[x], backward_operation=rowwise_softmax_backward, tag=f"softmax({x.tag})")
 
 def rowwise_logsumexp(x: Tensor) -> Tensor:
-    data = np.log(np.exp(x.data).sum(axis=1)[:, None])
+    m = x.data.max(axis=1, keepdims=True)
+    data = m + np.log(np.exp(x.data - m).sum(axis=1)[:, None])
     return Tensor(data, inp=[x], backward_operation=rowwise_logsumexp_backward, tag=f"logsumexp({x.tag})")
 
 def rowwise_logsoftmax(x: Tensor) -> Tensor:
